@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>API Key Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #7c6aff;
+    --accent2: #ff6a9d;
+    --green: #4ade80;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --text: #e2e2f0;
+    --muted: #666680;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,106,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,106,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .glow {
+    position: fixed;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-1 { background: rgba(124,106,255,0.12); top: -200px; left: -100px; }
+  .glow-2 { background: rgba(255,106,157,0.08); bottom: -200px; right: -100px; }
+
+  /* Layout */
+  .wrapper { max-width: 900px; margin: 0 auto; padding: 40px 20px; position: relative; z-index: 1; }
+
+  /* Header */
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 48px; }
+  .logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .header-text h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .header-text p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .badge {
+    margin-left: auto;
+    background: rgba(74,222,128,0.1);
+    border: 1px solid rgba(74,222,128,0.2);
+    color: var(--green);
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  /* Form */
+  .form-row { display: flex; gap: 10px; }
+  input[type="text"], input[type="password"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+
+  button {
+    background: linear-gradient(135deg, var(--accent), #5b4fd4);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+  button:hover { opacity: 0.85; }
+  button:active { transform: scale(0.98); }
+  button.danger { background: linear-gradient(135deg, #f87171, #dc2626); }
+  button.warn   { background: linear-gradient(135deg, var(--amber), #d97706); }
+  button.sm { padding: 7px 13px; font-size: 11px; border-radius: 7px; }
+
+  /* Result box */
+  .result-box {
+    margin-top: 16px;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px;
+    display: none;
+  }
+  .result-box.show { display: block; animation: fadeIn 0.3s ease; }
+  .result-box label { font-size: 10px; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; }
+  .key-display {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--green);
+    word-break: break-all;
+    margin-top: 6px;
+    line-height: 1.6;
+  }
+  .copy-btn {
+    background: rgba(124,106,255,0.15);
+    border: 1px solid rgba(124,106,255,0.3);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    margin-top: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .copy-btn:hover { background: rgba(124,106,255,0.25); }
+
+  /* Keys table */
+  .keys-list { display: flex; flex-direction: column; gap: 10px; }
+  .key-row {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: fadeIn 0.3s ease;
+  }
+  .key-row:hover { border-color: var(--accent); }
+  .key-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+  }
+  .key-dot.inactive { background: var(--muted); }
+  .key-info { flex: 1; min-width: 0; }
+  .key-name { font-size: 14px; font-weight: 700; }
+  .key-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+  .key-actions { display: flex; gap: 6px; }
+  .usage-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(124,106,255,0.1);
+    border: 1px solid rgba(124,106,255,0.2);
+    color: var(--accent);
+  }
+
+  /* Test section */
+  .test-result {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 14px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    white-space: pre-wrap;
+    display: none;
+    line-height: 1.7;
+  }
+  .test-result.show { display: block; animation: fadeIn 0.3s ease; }
+  .test-result.success { border-color: var(--green); color: var(--green); }
+  .test-result.error   { border-color: var(--red); color: var(--red); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    font-size: 13px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Empty state */
+  .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 30px; }
+
+  /* Admin token note */
+  .note {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(251,191,36,0.05);
+    border: 1px solid rgba(251,191,36,0.15);
+    border-radius: 8px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">🔑</div>
+    <div class="header-text">
+      <h1>API Key Manager</h1>
+      <p>Generate, manage, and validate keys securely</p>
+    </div>
+    <div class="badge">● LIVE</div>
+  </header>
+
+  <!-- Admin Token -->
+  <div class="card">
+    <div class="card-title">Admin Token</div>
+    <input type="password" id="adminToken" placeholder="Enter your admin token from .env..." />
+    <div class="note">⚠ Set ADMIN_TOKEN in your .env file. Default: admin-secret-token</div>
+  </div>
+
+  <!-- Create Key -->
+  <div class="card">
+    <div class="card-title">Generate New API Key</div>
+    <div class="form-row">
+      <input type="text" id="keyName" placeholder="Key name (e.g. my-app, frontend, bot)" />
+      <button onclick="createKey()">+ Generate</button>
+    </div>
+    <div class="result-box" id="createResult">
+      <label>Your API Key (shown once only)</label>
+      <div class="key-display" id="newKey"></div>
+      <button class="copy-btn" onclick="copyKey()">📋 Copy to Clipboard</button>
+    </div>
+  </div>
+
+  <!-- Key List -->
+  <div class="card">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>All API Keys</span>
+      <button class="sm" onclick="listKeys()">↻ Refresh</button>
+    </div>
+    <div class="keys-list" id="keysList">
+      <div class="empty">Click Refresh to load keys</div>
+    </div>
+  </div>
+
+  <!-- Test Key -->
+  <div class="card">
+    <div class="card-title">Test a Key</div>
+    <div class="form-row">
+      <input type="text" id="testKey" placeholder="Paste an API key to test..." />
+      <button onclick="testKey()">▶ Test</button>
+    </div>
+    <div class="test-result" id="testResult"></div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  const adminToken = () => document.getElementById('adminToken').value.trim();
+
+  function toast(msg, color = 'var(--accent)') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.borderColor = color;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  async function createKey() {
+    const name = document.getElementById('keyName').value.trim();
+    if (!name) return toast('Enter a key name first', 'var(--red)');
+    if (!adminToken()) return toast('Enter your admin token', 'var(--amber)');
+
+    const res = await fetch('/keys/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': adminToken()
+      },
+      body: JSON.stringify({ name })
+    });
+
+    const data = await res.json();
+    if (!res.ok) { toast(data.detail || 'Error', 'var(--red)'); return; }
+
+    document.getElementById('newKey').textContent = data.api_key;
+    document.getElementById('createResult').classList.add('show');
+    document.getElementById('keyName').value = '';
+    toast('Key created! Save it now.', 'var(--green)');
+    listKeys();
+  }
+
+  function copyKey() {
+    const key = document.getElementById('newKey').textContent;
+    navigator.clipboard.writeText(key);
+    toast('Copied to clipboard ✓', 'var(--green)');
+  }
+
+  async function listKeys() {
+    if (!adminToken()) { toast('Enter your admin token', 'var(--amber)'); return; }
+
+    const res = await fetch('/keys/list', {
+      headers: { 'x-admin-token': adminToken() }
+    });
+
+    const data = await res.json();
+    if (!res.ok) { toast(data.detail || 'Error', 'var(--red)'); return; }
+
+    const el = document.getElementById('keysList');
+    if (!data.length) { el.innerHTML = '<div class="empty">No keys yet — generate one above</div>'; return; }
+
+    el.innerHTML = data.map(k => `
+      <div class="key-row" id="row-${k.id}">
+        <div class="key-dot ${k.is_active ? '' : 'inactive'}"></div>
+        <div class="key-info">
+          <div class="key-name">${k.name}</div>
+          <div class="key-meta">ID: ${k.id} &nbsp;·&nbsp; Created: ${k.created_at.split('.')[0]} &nbsp;·&nbsp; ${k.is_active ? '✓ Active' : '✗ Revoked'}</div>
+        </div>
+        <span class="usage-badge">${k.usage_count} uses</span>
+        <div class="key-actions">
+          ${k.is_active ? `<button class="sm warn" onclick="revokeKey(${k.id})">Revoke</button>` : ''}
+          <button class="sm danger" onclick="deleteKey(${k.id})">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function revokeKey(id) {
+    if (!confirm(`Revoke key #${id}?`)) return;
+    const res = await fetch(`/keys/revoke/${id}`, {
+      method: 'PATCH',
+      headers: { 'x-admin-token': adminToken() }
+    });
+    const data = await res.json();
+    toast(data.message || 'Revoked', 'var(--amber)');
+    listKeys();
+  }
+
+  async function deleteKey(id) {
+    if (!confirm(`Permanently delete key #${id}?`)) return;
+    const res = await fetch(`/keys/delete/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': adminToken() }
+    });
+    const data = await res.json();
+    toast(data.message || 'Deleted', 'var(--red)');
+    listKeys();
+  }
+
+  async function testKey() {
+    const key = document.getElementById('testKey').value.trim();
+    if (!key) return toast('Enter a key to test', 'var(--amber)');
+
+    const res = await fetch('/api/data', {
+      headers: { 'x-api-key': key }
+    });
+
+    const data = await res.json();
+    const el = document.getElementById('testResult');
+    el.textContent = JSON.stringify(data, null, 2);
+    el.classList.remove('success', 'error');
+    el.classList.add('show', res.ok ? 'success' : 'error');
+  }
+</script>
+</body>
+</html>
